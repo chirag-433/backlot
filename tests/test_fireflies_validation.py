@@ -185,6 +185,10 @@ _ALL_PERSON = (
             [_field("organizers", _excl("organizers"), _email("organizers"))],
         ),
         (
+            'organizers: [""], host_email: "nope"',
+            [_field("organizers", _excl("organizers")), _field("hostEmail", _email("hostEmail"))],
+        ),
+        (
             _ALL_PERSON,
             [_exclusive("userId"), _exclusive("mine")]
             + [
@@ -239,6 +243,51 @@ def test_fireflies_measured_compound_refusal(fireflies_http, arguments, fields):
             "IsEmailOnly",
             "participants must be a valid email address",
         ),
+        (
+            'organizers: [" "]',
+            "organizers",
+            "IsEmailOnly",
+            "organizers must be a valid email address",
+        ),
+        (
+            'organizers: ["", "nope"]',
+            "organizers",
+            "IsEmailOnly",
+            "organizers must be a valid email address",
+        ),
+        (
+            'organizers: ["nope", ""]',
+            "organizers",
+            "IsEmailOnly",
+            "organizers must be a valid email address",
+        ),
+        (
+            'participants: ["", "nope"]',
+            "participants",
+            "IsEmailOnly",
+            "participants must be a valid email address",
+        ),
+        (
+            'organizers: [""], participants: ["nope"]',
+            "participants",
+            "IsEmailOnly",
+            "participants must be a valid email address",
+        ),
+        (
+            'organizers: ["nope"], participants: [""]',
+            "organizers",
+            "IsEmailOnly",
+            "organizers must be a valid email address",
+        ),
+        ('organizers: [""], limit: 100', "limit", "max", "limit must not be greater than 50"),
+        ('organizers: [""], skip: -1', "skip", "min", "skip must not be less than 0"),
+        (
+            'organizers: [""], fromDate: "x"',
+            "fromDate",
+            "isDate",
+            "fromDate must be a Date instance",
+        ),
+        ('organizers: [""], mine: true', "organizers", "exclusiveFields", _excl("organizers")[1]),
         (
             'host_email: "nope"',
             "hostEmail",
