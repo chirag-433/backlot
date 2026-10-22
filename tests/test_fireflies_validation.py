@@ -405,3 +405,49 @@ def test_fireflies_errors_in_one_response_share_one_correlation_id(fireflies_htt
     ).json()
     assert len(body["errors"]) == 2
     assert len({error["extensions"]["correlationId"] for error in body["errors"]}) == 1
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        'organizers: [""]',
+        'participants: [""]',
+        'organizers: ["", "a@b.co"]',
+        'organizers: ["a@b.co", ""]',
+        'organizers: [""], participants: [""]',
+    ],
+)
+def test_an_empty_member_of_organizers_or_participants_is_a_500_not_an_empty_page(
+    fireflies_http, arguments
+):
+    """An empty address in `organizers` or `participants` answers 200 with `data.transcripts: null`
+    and an INTERNAL_SERVER_ERROR, not `invalid_arguments` and not an empty list."""
+    response = _query(fireflies_http, arguments)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["data"]["transcripts"] is None
+    assert len(body["errors"]) == 1
+    error = body["errors"][0]
+    assert list(error) == ["friendly", "message", "locations", "path", "code", "extensions"]
+    assert error["friendly"] is False
+    assert error["message"] == "Something unexpected happened. Please try again"
+    assert error["locations"] == [{"line": 1, "column": 3}]
+    assert error["path"] == ["transcripts"]
+    assert error["code"] == "INTERNAL_SERVER_ERROR"
+    extensions = error["extensions"]
+    assert re.fullmatch(r"[A-Za-z0-9]{8}", extensions.pop("correlationId"))
+    assert extensions == {"code": "INTERNAL_SERVER_ERROR", "status": 500}
+
+
+def test_an_empty_singular_address_is_still_the_whole_list(fireflies_http):
+    """`organizer_email: ""` and `participant_email: ""` are no constraint on real."""
+    for arguments in ('organizer_email: ""', 'participant_email: ""'):
+        body = _query(fireflies_http, arguments).json()
+        assert "errors" not in body
+        assert body["data"]["transcripts"]
+
+
+def test_a_member_that_is_not_an_address_is_still_invalid_arguments(fireflies_http):
+    _assert_invalid(
+        _query(fireflies_http, 'organizers: ["nope"]'), [_field("organizers", _email("organizers"))]
+    )

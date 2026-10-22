@@ -429,15 +429,17 @@ def _validate_transcripts(arguments):
         if name in _PLURAL:
             if held:
                 add(name, "exclusiveFields", f"{_EXCLUSIVE}, {name}.")
-            if not all(map(_is_email, value)):
+            # An empty member is not refused as a bad address: real answers it with a 500 once the
+            # rest of the arguments are valid (api.fireflies.ai, 2026-10-22).
+            if not all(m == "" or _is_email(m) for m in value):
                 add(name, "IsEmailOnly", f"{name} must be a valid email address")
             continue
         if len(held) > 1:
             add(name, "exclusiveFields", f"{_EXCLUSIVE}.")
         if key.endswith("_email") and value and not _is_email(value):
             add(name, "IsEmailOnly", f"{name} must be a valid email address")
+    context = arguments["info"].context
     if fields:
-        context = arguments["info"].context
         raise GraphQLError(
             "Invalid argument(s) were provided",
             extensions={
@@ -450,6 +452,17 @@ def _validate_transcripts(arguments):
                 "helpUrls": [
                     "https://docs.fireflies.ai/miscellaneous/error-codes#invalid_arguments"
                 ],
+            },
+        )
+    if any("" in (arguments[key] or ()) for name, key in _PERSON_FIELDS if name in _PLURAL):
+        raise GraphQLError(
+            "Something unexpected happened. Please try again",
+            extensions={
+                "code": "INTERNAL_SERVER_ERROR",
+                "correlationId": context.setdefault(
+                    _CORRELATION_ID, "".join(secrets.choice(_ALNUM) for _ in range(8))
+                ),
+                "status": 500,
             },
         )
 

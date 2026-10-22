@@ -133,11 +133,12 @@ async def graphql(request: Request):
     # (api.fireflies.ai, 2026-10-21).
     errors = result.payload.get("errors", [])
     for i, error in enumerate(errors):
-        if error.get("extensions", {}).get("code") == "invalid_arguments":
+        code = error.get("extensions", {}).get("code")
+        if code in ("invalid_arguments", "INTERNAL_SERVER_ERROR"):
             errors[i] = {
-                "friendly": True,
+                "friendly": code == "invalid_arguments",
                 **{key: value for key, value in error.items() if key != "extensions"},
-                "code": "invalid_arguments",
+                "code": code,
                 "extensions": error["extensions"],
             }
     return Response(
